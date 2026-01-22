@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Review {
-    private String user;
-    private double rating;
-    private String comment;
+public class OrderItem {
+    private String name;
+    private int qty;
+    private double price;
 }

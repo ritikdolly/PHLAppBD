@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Review {
-    private String user;
-    private double rating;
-    private String comment;
+public class CartItem {
+    private String foodId;
+    private int quantity;
+    private double price; // Price at the time of adding to cart
 }
