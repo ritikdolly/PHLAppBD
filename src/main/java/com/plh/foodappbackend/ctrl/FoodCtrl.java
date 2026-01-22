@@ -3,50 +3,44 @@ package com.plh.foodappbackend.ctrl;
 import com.plh.foodappbackend.model.Food;
 import com.plh.foodappbackend.service.FoodService;
 import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
 
 @RestController
 @RequestMapping("/api/foods")
 @AllArgsConstructor
 public class FoodCtrl {
 
-    private FoodService foodService;
+    private final FoodService foodService;
+
+    @GetMapping
+    public List<Food> getAllFoods() {
+        return foodService.getAllFoods();
+    }
 
     @PostMapping("/add")
-    public String addFood(@RequestBody Food food){
+    public Food addFood(@RequestBody Food food) {
         return foodService.addFood(food);
     }
 
-    @PostMapping("/edit")
-    public String editFood(@RequestBody String id){
-        return foodService.editFood(id);
+    @PutMapping("/{id}")
+    public Food updateFood(@PathVariable String id, @RequestBody Food food) {
+        return foodService.updateFood(id, food);
     }
 
-    @PostMapping("/delete")
-    public String deleteFood(@RequestBody String id){
-        return foodService.deleteFood(id);
+    @DeleteMapping("/{id}")
+    public void deleteFood(@PathVariable String id) {
+        foodService.deleteFood(id);
     }
 
-    @PostMapping("/type")
-    public List<String> deleteFood(){
-        return foodService.getType();
+    @GetMapping("/{id}")
+    public Food getFoodById(@PathVariable String id) {
+        return foodService.getFoodById(id);
     }
 
-    @PostMapping("/get/one")
-    public Food getFood(@RequestBody String id){
-        return foodService.getFood(id);
+    @GetMapping("/types")
+    public List<String> getFoodTypes() {
+        return foodService.getFoodTypes();
     }
-    @PostMapping("/get/all")
-    public List<Food> getFood(){
-        return foodService.getAllFood();
-    }
-
-
-
 }

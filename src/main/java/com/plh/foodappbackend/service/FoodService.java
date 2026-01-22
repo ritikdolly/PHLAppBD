@@ -6,15 +6,15 @@ import java.util.List;
 
 public interface FoodService {
 
-    String addFood(Food food);
+    Food addFood(Food food);
 
-    String editFood(String id);
+    Food updateFood(String id, Food food);
 
-    String deleteFood(String id);
+    void deleteFood(String id);
 
-    List<Food> getAllFood();
+    List<Food> getAllFoods();
 
-    Food getFood(String id);
+    Food getFoodById(String id);
 
-    List<String> getType();
+    List<String> getFoodTypes();
 }

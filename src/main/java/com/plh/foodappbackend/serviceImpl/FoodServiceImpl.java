@@ -1,42 +1,51 @@
 package com.plh.foodappbackend.serviceImpl;
 
 import com.plh.foodappbackend.model.Food;
+import com.plh.foodappbackend.repository.FoodRepository;
 import com.plh.foodappbackend.service.FoodService;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
+@AllArgsConstructor
 public class FoodServiceImpl implements FoodService {
+
+    private final FoodRepository foodRepository;
+
     @Override
-    public String addFood(Food food) {
-        return "";
+    public Food addFood(Food food) {
+        return foodRepository.save(food);
     }
 
     @Override
-    public String editFood(String id) {
-        return "";
+    public Food updateFood(String id, Food food) {
+        food.setId(id); // Ensure ID matches path
+        return foodRepository.save(food);
     }
 
     @Override
-    public String deleteFood(String id) {
-        return "";
+    public void deleteFood(String id) {
+        foodRepository.deleteById(id);
     }
 
     @Override
-    public List<Food> getAllFood() {
-        return List.of();
-    }
-
-
-
-    @Override
-    public List<String> getType() {
-        return List.of();
+    public List<Food> getAllFoods() {
+        return foodRepository.findAll();
     }
 
     @Override
-    public Food getFood(String id) {
-        return null;
+    public Food getFoodById(String id) {
+        return foodRepository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<String> getFoodTypes() {
+        return foodRepository.findAll().stream()
+                .flatMap(food -> food.getTypes().stream())
+                .distinct()
+                .collect(Collectors.toList());
     }
 }
