@@ -48,4 +48,41 @@ public class FoodServiceImpl implements FoodService {
                 .distinct()
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public Food addReview(String foodId, com.plh.foodappbackend.model.Review review) {
+        Food food = foodRepository.findById(foodId).orElse(null);
+        if (food != null) {
+            if (food.getReviews() == null) {
+                food.setReviews(new java.util.ArrayList<>());
+            }
+            food.getReviews().add(review);
+            updateRating(food);
+            return foodRepository.save(food);
+        }
+        return null;
+    }
+
+    @Override
+    public Food deleteReview(String foodId, String reviewId) {
+        Food food = foodRepository.findById(foodId).orElse(null);
+        if (food != null && food.getReviews() != null) {
+            food.getReviews().removeIf(r -> r.getId().equals(reviewId));
+            updateRating(food);
+            return foodRepository.save(food);
+        }
+        return null;
+    }
+
+    private void updateRating(Food food) {
+        if (food.getReviews() == null || food.getReviews().isEmpty()) {
+            food.setRating(0);
+        } else {
+            double avg = food.getReviews().stream()
+                    .mapToDouble(com.plh.foodappbackend.model.Review::getRating)
+                    .average()
+                    .orElse(0.0);
+            food.setRating(Math.round(avg * 10.0) / 10.0);
+        }
+    }
 }

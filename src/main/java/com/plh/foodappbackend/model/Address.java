@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Address {
 
+    private String id = java.util.UUID.randomUUID().toString();
     private String street;
     private String city;
     private String district;

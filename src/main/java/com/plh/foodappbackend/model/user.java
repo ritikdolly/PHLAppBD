@@ -19,6 +19,8 @@ public class user {
     private String email;
     private String phone;
     private String bio;
+    private String firebaseUid;
     private List<Address> address;
+    private List<String> favorites; // List of Food IDs
 
 }

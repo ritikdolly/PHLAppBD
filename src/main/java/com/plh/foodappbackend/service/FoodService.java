@@ -17,4 +17,8 @@ public interface FoodService {
     Food getFoodById(String id);
 
     List<String> getFoodTypes();
+
+    Food addReview(String foodId, com.plh.foodappbackend.model.Review review);
+
+    Food deleteReview(String foodId, String reviewId);
 }

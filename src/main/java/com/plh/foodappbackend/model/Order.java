@@ -21,4 +21,7 @@ public class Order {
     private String status; // Delivered, Processing, Cancelled
     private List<OrderItem> items;
     private String img; // Display image for the order
+    private Address address;
+    private String paymentMethod;
+    private String paymentId;
 }

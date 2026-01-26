@@ -43,4 +43,14 @@ public class FoodCtrl {
     public List<String> getFoodTypes() {
         return foodService.getFoodTypes();
     }
+
+    @PostMapping("/{id}/reviews")
+    public Food addReview(@PathVariable String id, @RequestBody com.plh.foodappbackend.model.Review review) {
+        return foodService.addReview(id, review);
+    }
+
+    @DeleteMapping("/{id}/reviews/{reviewId}")
+    public Food deleteReview(@PathVariable String id, @PathVariable String reviewId) {
+        return foodService.deleteReview(id, reviewId);
+    }
 }
