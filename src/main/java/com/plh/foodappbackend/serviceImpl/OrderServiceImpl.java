@@ -46,4 +46,9 @@ public class OrderServiceImpl implements OrderService {
         }
         return null;
     }
+
+    @Override
+    public List<Order> getUserOrders(String userId) {
+        return orderRepository.findByUserId(userId);
+    }
 }

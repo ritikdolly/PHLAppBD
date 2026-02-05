@@ -16,4 +16,9 @@ public class OrderCtrl {
     public Order createOrder(@RequestBody Order order) {
         return orderService.createOrder(order);
     }
+
+    @GetMapping("/user/{userId}")
+    public java.util.List<Order> getUserOrders(@PathVariable String userId) {
+        return orderService.getUserOrders(userId);
+    }
 }

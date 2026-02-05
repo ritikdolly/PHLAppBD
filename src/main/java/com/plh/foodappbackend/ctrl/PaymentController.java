@@ -1,6 +1,6 @@
 package com.plh.foodappbackend.ctrl;
 
-import com.plh.foodappbackend.service.PaymentService;
+import com.plh.foodappbackend.serviceImpl.PaymentService;
 import com.razorpay.RazorpayException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

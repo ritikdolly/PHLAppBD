@@ -1,7 +1,7 @@
 package com.plh.foodappbackend.ctrl;
 
 import com.plh.foodappbackend.model.Address;
-import com.plh.foodappbackend.model.user;
+import com.plh.foodappbackend.model.User;
 import com.plh.foodappbackend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,9 +19,9 @@ public class AddressCtrl {
 
     // Helper to get dummy user for now since Auth is unclear.
     // In a real app, this would get the user from the SecurityContext
-    private user getUser() throws Exception {
+    private User getUser() throws Exception {
         // Fetch the first user or a specific test user
-        List<user> users = userRepository.findAll();
+        List<User> users = userRepository.findAll();
         if (users.isEmpty()) {
             throw new Exception("No users found");
         }
@@ -29,9 +29,9 @@ public class AddressCtrl {
     }
 
     @PostMapping
-    public ResponseEntity<user> addAddress(@RequestBody Address address) {
+    public ResponseEntity<User> addAddress(@RequestBody Address address) {
         try {
-            user user = getUser();
+            User user = getUser();
             if (user.getAddress() == null) {
                 user.setAddress(new ArrayList<>());
             }
@@ -46,7 +46,7 @@ public class AddressCtrl {
     @GetMapping
     public ResponseEntity<List<Address>> getAddresses() {
         try {
-            user user = getUser();
+            User user = getUser();
             return ResponseEntity.ok(user.getAddress() != null ? user.getAddress() : new ArrayList<>());
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -56,7 +56,7 @@ public class AddressCtrl {
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteAddress(@PathVariable String id) {
         try {
-            user user = getUser();
+            User user = getUser();
             if (user.getAddress() != null) {
                 user.getAddress().removeIf(address -> address.getId().equals(id));
                 userRepository.save(user);
@@ -68,9 +68,9 @@ public class AddressCtrl {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<user> updateAddress(@PathVariable String id, @RequestBody Address updatedAddress) {
+    public ResponseEntity<User> updateAddress(@PathVariable String id, @RequestBody Address updatedAddress) {
         try {
-            user user = getUser();
+            User user = getUser();
             if (user.getAddress() != null) {
                 for (int i = 0; i < user.getAddress().size(); i++) {
                     Address address = user.getAddress().get(i);

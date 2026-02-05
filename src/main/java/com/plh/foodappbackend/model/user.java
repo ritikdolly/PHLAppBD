@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
@@ -12,15 +13,17 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Document(collection = "users")
-public class user {
+public class User {
     @Id
     private String id;
     private String name;
     private String email;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String password;
     private String phone;
+    private boolean isEmailVerified = false;
     private String bio;
-    private String firebaseUid;
     private List<Address> address;
     private List<String> favorites; // List of Food IDs
-
+    private USER_ROLE role;
 }

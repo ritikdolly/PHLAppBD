@@ -27,4 +27,16 @@ public class UserCtrl {
     public List<String> getFavorites(@PathVariable String userId) {
         return userService.getFavorites(userId);
     }
+
+    @GetMapping("/{userId}")
+    public com.plh.foodappbackend.model.User getUser(@PathVariable String userId) {
+        return userService.getUserById(userId);
+    }
+
+    @PutMapping("/{userId}")
+    public com.plh.foodappbackend.model.User updateUser(@PathVariable String userId,
+            @RequestBody com.plh.foodappbackend.model.User user) {
+        user.setId(userId);
+        return userService.updateUser(user);
+    }
 }
