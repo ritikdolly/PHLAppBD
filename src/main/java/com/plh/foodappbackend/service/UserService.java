@@ -13,4 +13,6 @@ public interface UserService {
     List<String> getFavorites(String userId);
 
     User updateUser(User user);
+
+    User findUserByEmail(String email);
 }

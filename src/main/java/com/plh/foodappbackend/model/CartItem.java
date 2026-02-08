@@ -11,4 +11,6 @@ public class CartItem {
     private String foodId;
     private int quantity;
     private double price; // Price at the time of adding to cart
+    private String name;
+    private String imageUrl;
 }

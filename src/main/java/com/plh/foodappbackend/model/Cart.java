@@ -16,6 +16,7 @@ public class Cart {
     @Id
     private String id;
     private String userId;
+    private String sessionId;
     private List<CartItem> items;
     private double totalAmount;
 }
