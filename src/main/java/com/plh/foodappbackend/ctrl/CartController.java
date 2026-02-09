@@ -74,10 +74,21 @@ public class CartController {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.isAuthenticated()
                     && !authentication.getPrincipal().equals("anonymousUser")) {
-                String email = (String) authentication.getPrincipal();
-                return userService.findUserByEmail(email);
+                Object principal = authentication.getPrincipal();
+                String email = null;
+
+                if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
+                    email = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
+                } else if (principal instanceof String) {
+                    email = (String) principal;
+                }
+
+                if (email != null) {
+                    return userService.findUserByEmail(email);
+                }
             }
         } catch (Exception e) {
+            System.out.println("Error resolving user: " + e.getMessage());
         }
         return null;
     }

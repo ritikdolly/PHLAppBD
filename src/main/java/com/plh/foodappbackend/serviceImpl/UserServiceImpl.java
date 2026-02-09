@@ -56,6 +56,7 @@ public class UserServiceImpl implements UserService {
             existingUser.setName(user.getName());
             existingUser.setPhone(user.getPhone());
             existingUser.setBio(user.getBio());
+            existingUser.setAddress(user.getAddress()); // Update addresses as well
             // existingUser.setEmail(user.getEmail()); // Optional: decide if email update
             // is allowed here
             // Persist other fields like address if needed, but for now ProfilePage only has

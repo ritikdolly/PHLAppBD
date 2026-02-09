@@ -33,20 +33,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(token)) {
             try {
                 String username = jwtTokenProvider.getUsernameFromToken(token);
+                System.out.println("JwtAuthFilter: Token found, username: " + username);
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    System.out.println("JwtAuthFilter: UserDetails loaded: " + userDetails.getUsername());
+
                     if (jwtTokenProvider.validateToken(token, userDetails)) {
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
+                        System.out.println("JwtAuthFilter: Auth set in context");
+                    } else {
+                        System.out.println("JwtAuthFilter: Token validation failed");
                     }
                 }
             } catch (Exception e) {
+                System.out.println("JwtAuthFilter: Exception: " + e.getMessage());
+                e.printStackTrace();
                 // Token is invalid/expired or signature mismatch.
                 // We simply ignore it and let the request proceed anonymously.
                 // Spring Security will permit or deny based on configuration.
             }
+        } else {
+            System.out.println("JwtAuthFilter: No token found");
         }
 
         filterChain.doFilter(request, response);
