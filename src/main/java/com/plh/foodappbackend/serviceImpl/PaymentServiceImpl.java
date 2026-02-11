@@ -1,74 +1,67 @@
 package com.plh.foodappbackend.serviceImpl;
 
-import com.plh.foodappbackend.model.PaymentOrder;
-import com.plh.foodappbackend.repository.PaymentOrderRepository;
+import com.plh.foodappbackend.model.Order;
+import com.plh.foodappbackend.response.PaymentResponse;
 import com.plh.foodappbackend.service.PaymentService;
-import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
-import com.razorpay.Utils;
 import org.json.JSONObject;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
+import java.math.BigDecimal;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
 
-    @Autowired
-    private PaymentOrderRepository paymentOrderRepository;
-
     @Value("${razorpay.key.id}")
-    private String keyId;
+    private String apiKey;
 
     @Value("${razorpay.key.secret}")
-    private String keySecret;
+    private String apiSecret;
 
     @Override
-    public PaymentOrder createOrder(Long amount, String currency, String receipt, String userId)
-            throws RazorpayException {
-        RazorpayClient client = new RazorpayClient(keyId, keySecret);
+    public PaymentResponse createPaymentLink(Order order) throws RazorpayException {
+        // Since we are using standard checkout, we might just need order_id
+        // But requested specifically to create payment link or order
 
+        RazorpayClient razorpay = new RazorpayClient(apiKey, apiSecret);
         JSONObject orderRequest = new JSONObject();
-        orderRequest.put("amount", amount * 100); // Amount in paise
-        orderRequest.put("currency", currency);
-        orderRequest.put("receipt", receipt);
-        orderRequest.put("payment_capture", 1); // Auto capture
+        // Amount in paise
+        orderRequest.put("amount", order.getTotalAmount().multiply(BigDecimal.valueOf(100)).longValue()); // Casting to
+                                                                                                          // long for
+                                                                                                          // paise
+        orderRequest.put("currency", "INR");
+        orderRequest.put("receipt", "order_" + order.getId());
 
-        Order order = client.orders.create(orderRequest);
+        com.razorpay.Order createdOrder = razorpay.orders.create(orderRequest);
 
-        PaymentOrder paymentOrder = new PaymentOrder();
-        paymentOrder.setRazorpayOrderId(order.get("id"));
-        paymentOrder.setAmount(amount * 100);
-        paymentOrder.setCurrency(currency);
-        paymentOrder.setStatus("CREATED");
-        paymentOrder.setUserId(userId);
-        paymentOrder.setReceipt(receipt);
-        paymentOrder.setCreatedAt(new Date());
+        String orderId = createdOrder.get("id");
 
-        return paymentOrderRepository.save(paymentOrder);
+        PaymentResponse response = new PaymentResponse();
+        response.setPayment_url(orderId);
+        response.setAmount(orderRequest.getLong("amount"));
+        response.setCurrency(orderRequest.getString("currency"));
+
+        return response;// We return the orderId as the 'url' or identifier for frontend to use in
+                        // checkout options
     }
 
     @Override
-    public PaymentOrder verifyPayment(String orderId, String paymentId, String signature) throws RazorpayException {
-        JSONObject options = new JSONObject();
-        options.put("razorpay_order_id", orderId);
-        options.put("razorpay_payment_id", paymentId);
-        options.put("razorpay_signature", signature);
+    public PaymentResponse createRazorpayOrder(BigDecimal amount) throws RazorpayException {
+        RazorpayClient razorpay = new RazorpayClient(apiKey, apiSecret);
+        JSONObject orderRequest = new JSONObject();
+        // Amount in paise
+        orderRequest.put("amount", amount.multiply(BigDecimal.valueOf(100)).longValue());
+        orderRequest.put("currency", "INR");
+        orderRequest.put("receipt", "receipt_" + System.currentTimeMillis());
 
-        boolean isValid = Utils.verifyPaymentSignature(options, keySecret);
+        com.razorpay.Order createdOrder = razorpay.orders.create(orderRequest);
+        String orderId = createdOrder.get("id");
 
-        if (isValid) {
-            PaymentOrder paymentOrder = paymentOrderRepository.findByRazorpayOrderId(orderId);
-            if (paymentOrder != null) {
-                paymentOrder.setStatus("PAID");
-                paymentOrder.setPaymentId(paymentId);
-                return paymentOrderRepository.save(paymentOrder);
-            }
-        }
+        PaymentResponse response = new PaymentResponse();
+        response.setPayment_url(orderId);
 
-        throw new RazorpayException("Payment verification failed");
+        return response;
     }
 }

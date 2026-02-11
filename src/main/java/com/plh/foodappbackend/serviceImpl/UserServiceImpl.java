@@ -2,6 +2,7 @@ package com.plh.foodappbackend.serviceImpl;
 
 import com.plh.foodappbackend.model.User;
 import com.plh.foodappbackend.repository.UserRepository;
+import com.plh.foodappbackend.security.JwtTokenProvider;
 import com.plh.foodappbackend.service.UserService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Override
     public User getUserById(String id) {
@@ -69,5 +71,25 @@ public class UserServiceImpl implements UserService {
     @Override
     public User findUserByEmail(String email) {
         return userRepository.findByEmail(email).orElse(null);
+    }
+
+    @Override
+    public User findUserByJwtToken(String jwt) throws Exception {
+        // Extract token from Bearer string if present
+        if (jwt != null && jwt.startsWith("Bearer ")) {
+            jwt = jwt.substring(7);
+        }
+
+        String email = jwtTokenProvider.getUsernameFromToken(jwt);
+
+        if (email == null) {
+            throw new Exception("Invalid token");
+        }
+
+        User user = findUserByEmail(email);
+        if (user == null) {
+            throw new Exception("User not found with email " + email);
+        }
+        return user;
     }
 }

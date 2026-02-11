@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -18,5 +19,8 @@ public class Cart {
     private String userId;
     private String sessionId;
     private List<CartItem> items;
-    private double totalAmount;
+    private BigDecimal totalItemPrice; // Sum of items
+    private BigDecimal deliveryFee;
+    private BigDecimal tax;
+    private BigDecimal totalAmount; // Grand Total
 }

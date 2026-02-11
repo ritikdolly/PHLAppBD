@@ -11,6 +11,7 @@ import com.plh.foodappbackend.service.CartService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -34,7 +35,7 @@ public class CartServiceImpl implements CartService {
         if (cartOptional.isEmpty()) {
             Cart cart = new Cart();
             cart.setItems(new ArrayList<>());
-            cart.setTotalAmount(0.0);
+            cart.setTotalAmount(BigDecimal.ZERO);
             cart.setUserId(user.getId());
             return cartRepository.save(cart);
         }
@@ -62,7 +63,7 @@ public class CartServiceImpl implements CartService {
         CartItem newItem = new CartItem();
         newItem.setFoodId(food.getId());
         newItem.setQuantity(request.getQuantity());
-        newItem.setPrice(food.getPrice() * request.getQuantity());
+        newItem.setPrice(food.getPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
         newItem.setName(food.getName());
         newItem.setImageUrl(food.getImageUrl());
 
@@ -83,7 +84,7 @@ public class CartServiceImpl implements CartService {
                     // Recalculate price: fetch food to get unit price safely
                     Optional<Food> foodOpt = foodRepository.findById(foodId);
                     if (foodOpt.isPresent()) {
-                        item.setPrice(foodOpt.get().getPrice() * quantity);
+                        item.setPrice(foodOpt.get().getPrice().multiply(BigDecimal.valueOf(quantity)));
                     }
                     break;
                 }
@@ -107,15 +108,30 @@ public class CartServiceImpl implements CartService {
     public Cart clearCart(User user) {
         Cart cart = getCart(user);
         cart.getItems().clear();
-        cart.setTotalAmount(0.0);
+        cart.setTotalAmount(BigDecimal.ZERO);
         return cartRepository.save(cart);
     }
 
     private void calculateCartTotal(Cart cart) {
-        double total = 0;
+        BigDecimal totalItemPrice = BigDecimal.ZERO;
         for (CartItem item : cart.getItems()) {
-            total += item.getPrice();
+            totalItemPrice = totalItemPrice.add(item.getPrice());
         }
-        cart.setTotalAmount(total);
+
+        cart.setTotalItemPrice(totalItemPrice);
+
+        // Delivery Rule: >= 300 Free, else 40
+        BigDecimal deliveryFee = BigDecimal.ZERO;
+        if (totalItemPrice.compareTo(BigDecimal.valueOf(300)) < 0) {
+            deliveryFee = BigDecimal.valueOf(40);
+        }
+        cart.setDeliveryFee(deliveryFee);
+
+        // Tax (placeholder 0 for now)
+        BigDecimal tax = BigDecimal.ZERO;
+        cart.setTax(tax);
+
+        BigDecimal totalAmount = totalItemPrice.add(deliveryFee).add(tax);
+        cart.setTotalAmount(totalAmount);
     }
 }

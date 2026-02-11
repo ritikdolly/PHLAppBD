@@ -1,5 +1,6 @@
 package com.plh.foodappbackend.model;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,7 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderItem {
-    private String name;
-    private int qty;
-    private double price;
+    private String foodId;
+    private String foodName;
+    private String foodImage;
+    private BigDecimal price;
+    private int quantity;
+    private BigDecimal totalPrice;
 }

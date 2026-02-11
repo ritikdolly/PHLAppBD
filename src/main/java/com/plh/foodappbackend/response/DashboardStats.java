@@ -12,4 +12,6 @@ public class DashboardStats {
     private long foodItems;
     private long activeOffers;
     private double revenue;
+    private java.util.List<RevenueItem> revenueData;
+    private java.util.List<com.plh.foodappbackend.model.Order> recentOrders;
 }

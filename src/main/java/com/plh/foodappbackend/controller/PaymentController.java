@@ -1,62 +1,107 @@
 package com.plh.foodappbackend.controller;
 
-import com.plh.foodappbackend.model.PaymentOrder;
+import com.plh.foodappbackend.model.Cart;
+import com.plh.foodappbackend.model.Order;
+import com.plh.foodappbackend.model.ORDER_STATUS;
+import com.plh.foodappbackend.model.PAYMENT_METHOD;
+import com.plh.foodappbackend.model.PAYMENT_STATUS;
+import com.plh.foodappbackend.model.User;
+import com.plh.foodappbackend.repository.OrderRepository;
+import com.plh.foodappbackend.request.OrderRequest;
+import com.plh.foodappbackend.request.PaymentVerificationRequest;
+import com.plh.foodappbackend.response.PaymentResponse;
+import com.plh.foodappbackend.service.CartService;
+import com.plh.foodappbackend.service.OrderService;
 import com.plh.foodappbackend.service.PaymentService;
-import com.razorpay.RazorpayException;
+import com.plh.foodappbackend.service.UserService;
+import com.razorpay.Utils;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
-@RequestMapping("/api/payment")
+@RequestMapping("/api")
 public class PaymentController {
 
     @Autowired
     private PaymentService paymentService;
 
-    @PostMapping("/create-order")
-    public ResponseEntity<?> createOrder(@RequestBody Map<String, Object> data,
-            @RequestHeader(value = "Authorization", required = false) String token) {
-        try {
-            Long amount = Long.parseLong(data.get("amount").toString());
-            String currency = (String) data.getOrDefault("currency", "INR");
-            String receipt = (String) data.getOrDefault("receipt", "txn_" + System.currentTimeMillis());
+    @Autowired
+    private OrderService orderService;
 
-            // In a real app, you'd extract userId from the token or security context.
-            // For now, we'll assume it's passed or handle it if we have the User object.
-            // Let's rely on the frontend passing it or just use a placeholder if not
-            // essential for the payment creation itself,
-            // but for a real app we need it.
-            // Better: Get userId from the authenticated user.
-            // But since I don't want to complicate the dependencies here with User
-            // extraction logic if not already handy,
-            // I'll check if 'userId' is passed in the body.
-            String userId = (String) data.get("userId");
+    @Autowired
+    private OrderRepository orderRepository;
 
-            PaymentOrder order = paymentService.createOrder(amount, currency, receipt, userId);
-            return ResponseEntity.ok(order);
-        } catch (RazorpayException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error creating order: " + e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid request: " + e.getMessage());
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private CartService cartService;
+
+    @Value("${razorpay.key.secret}")
+    private String apiSecret;
+
+    @PostMapping("/payment/initiate")
+    public ResponseEntity<PaymentResponse> initiatePayment(@RequestHeader("Authorization") String jwt)
+            throws Exception {
+        User user = userService.findUserByJwtToken(jwt);
+        Cart cart = cartService.getCart(user);
+
+        if (cart.getItems().isEmpty()) {
+            throw new Exception("Cart is empty");
         }
+
+        // Calculate total amount from cart (already calculated in getCart usually, but
+        // ensures it matches backend)
+        // Accessing totalAmount directly from Cart
+        if (cart.getTotalAmount() == null) {
+            // force calculation if null, though getCart usually does it
+            // Assuming CartService logic handles this.
+            // If not, we might need to trigger calculation.
+        }
+
+        PaymentResponse res = paymentService.createRazorpayOrder(cart.getTotalAmount());
+        return new ResponseEntity<>(res, HttpStatus.CREATED);
     }
 
-    @PostMapping("/verify")
-    public ResponseEntity<?> verifyPayment(@RequestBody Map<String, String> data) {
-        try {
-            String orderId = data.get("razorpay_order_id");
-            String paymentId = data.get("razorpay_payment_id");
-            String signature = data.get("razorpay_signature");
+    @PutMapping("/payment/verify")
+    public ResponseEntity<Order> verifyPayment(@RequestBody PaymentVerificationRequest req,
+            @RequestHeader("Authorization") String jwt) throws Exception {
+        // valid signature
+        JSONObject options = new JSONObject();
+        options.put("razorpay_order_id", req.getRazorpayOrderId());
+        options.put("razorpay_payment_id", req.getRazorpayPaymentId());
+        options.put("razorpay_signature", req.getRazorpaySignature());
 
-            PaymentOrder order = paymentService.verifyPayment(orderId, paymentId, signature);
-            return ResponseEntity.ok(order);
-        } catch (RazorpayException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Payment verification failed: " + e.getMessage());
+        boolean valid = Utils.verifyPaymentSignature(options, apiSecret);
+
+        if (valid) {
+            User user = userService.findUserByJwtToken(jwt);
+
+            // Create OrderRequest
+            OrderRequest orderRequest = new OrderRequest();
+            orderRequest.setShippingAddress(req.getShippingAddress());
+            orderRequest.setPaymentMethod(PAYMENT_METHOD.ONLINE); // Or get from req if we expanded it
+
+            // Create Order (This clears the cart)
+            Order order = orderService.createOrder(orderRequest, user);
+
+            // Update Order Payment Details
+            order.getPaymentDetails().setRazorpayPaymentId(req.getRazorpayPaymentId());
+            order.getPaymentDetails().setRazorpayOrderId(req.getRazorpayOrderId());
+            order.getPaymentDetails().setRazorpaySignature(req.getRazorpaySignature());
+            order.getPaymentDetails().setStatus(PAYMENT_STATUS.PAID);
+
+            // Update Order Status
+            order.setStatus(ORDER_STATUS.CONFIRMED);
+
+            Order savedOrder = orderRepository.save(order);
+            return new ResponseEntity<>(savedOrder, HttpStatus.OK);
         }
+
+        throw new Exception("Payment Failed");
     }
 }

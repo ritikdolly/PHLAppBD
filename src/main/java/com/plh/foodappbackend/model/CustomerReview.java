@@ -11,16 +11,16 @@ import java.util.Date;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Document(collection = "payment_orders")
-public class PaymentOrder {
+@Document(collection = "customer_reviews")
+public class CustomerReview {
     @Id
     private String id;
-    private String razorpayOrderId;
-    private Long amount;
-    private String currency;
-    private String status;
-    private String paymentId;
+
     private String userId;
-    private String receipt;
-    private Date createdAt;
+    private String userName; // Storing name to avoid extra lookups
+
+    private String comment;
+    private double rating; // 1 to 5
+
+    private Date createdAt = new Date();
 }

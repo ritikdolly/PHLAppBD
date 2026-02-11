@@ -15,4 +15,6 @@ public interface UserService {
     User updateUser(User user);
 
     User findUserByEmail(String email);
+
+    User findUserByJwtToken(String jwt) throws Exception;
 }

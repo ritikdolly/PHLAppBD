@@ -1,5 +1,6 @@
 package com.plh.foodappbackend.model;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -29,14 +30,17 @@ public class Food {
     private String imageUrl;
 
     @Positive(message = "Price must be positive")
-    private double price;
+    private BigDecimal price;
 
     @DecimalMin(value = "0.0")
     @DecimalMax(value = "5.0")
-    private double rating = 0.0;   // default
+    private double rating = 0.0; // default
 
     @NotBlank
-    private String quantity;
+    private String quantity; // e.g. "1 kg", "500g" - display only
+
+    @PositiveOrZero(message = "Stock cannot be negative")
+    private int stock = 0; // Inventory tracking
 
     private List<String> customerImages; // nullable OK
 

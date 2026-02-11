@@ -1,10 +1,11 @@
 package com.plh.foodappbackend.service;
 
-import com.plh.foodappbackend.model.PaymentOrder;
+import com.plh.foodappbackend.model.Order;
+import com.plh.foodappbackend.response.PaymentResponse;
 import com.razorpay.RazorpayException;
 
 public interface PaymentService {
-    PaymentOrder createOrder(Long amount, String currency, String receipt, String userId) throws RazorpayException;
+    PaymentResponse createPaymentLink(Order order) throws RazorpayException;
 
-    PaymentOrder verifyPayment(String orderId, String paymentId, String signature) throws RazorpayException;
+    PaymentResponse createRazorpayOrder(java.math.BigDecimal amount) throws RazorpayException;
 }

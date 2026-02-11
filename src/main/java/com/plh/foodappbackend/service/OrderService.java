@@ -1,17 +1,24 @@
 package com.plh.foodappbackend.service;
 
 import com.plh.foodappbackend.model.Order;
+import com.plh.foodappbackend.model.User;
+import com.plh.foodappbackend.request.OrderRequest;
 
 import java.util.List;
+import java.util.Map;
 
 public interface OrderService {
-    Order createOrder(Order order);
+    Order createOrder(OrderRequest req, User user) throws Exception;
 
-    List<Order> getAllOrders();
+    Order updateOrder(String orderId, String orderStatus) throws Exception;
 
-    Order getOrderById(String id);
+    void cancelOrder(String orderId) throws Exception;
 
-    Order updateStatus(String id, String status);
+    List<Order> getUsersOrder(String userId) throws Exception; // all orders for a user
 
-    List<Order> getUserOrders(String userId);
+    List<Order> getAllOrders(); // admin
+
+    Map<String, Object> getDashboardStats();
+
+    Order findOrderById(String orderId) throws Exception;
 }
