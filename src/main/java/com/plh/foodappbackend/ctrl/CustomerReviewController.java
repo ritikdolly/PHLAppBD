@@ -9,8 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/customer-reviews")
 @AllArgsConstructor
@@ -20,29 +18,42 @@ public class CustomerReviewController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<?> createReview(@RequestBody CustomerReview review,
-                                          @RequestHeader("Authorization") String jwt) {
+    public ResponseEntity<com.plh.foodappbackend.response.ApiResponse> createReview(@RequestBody CustomerReview review,
+            @RequestHeader("Authorization") String jwt) {
         try {
             User user = userService.findUserByJwtToken(jwt);
             CustomerReview savedReview = customerReviewService.createReview(review, user);
-            return new ResponseEntity<>(savedReview, HttpStatus.CREATED);
+            return new ResponseEntity<>(
+                    new com.plh.foodappbackend.response.ApiResponse(true,
+                            "Your review has been submitted successfully.",
+                            savedReview),
+                    HttpStatus.CREATED);
         } catch (Exception e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(
+                    new com.plh.foodappbackend.response.ApiResponse(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
     @GetMapping
-    public ResponseEntity<List<CustomerReview>> getAllReviews() {
-        return new ResponseEntity<>(customerReviewService.getAllReviews(), HttpStatus.OK);
+    public ResponseEntity<com.plh.foodappbackend.response.ApiResponse> getAllReviews() {
+        return new ResponseEntity<>(
+                new com.plh.foodappbackend.response.ApiResponse(true, "Reviews fetched successfully",
+                        customerReviewService.getAllReviews()),
+                HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteReview(@PathVariable String id) {
+    public ResponseEntity<com.plh.foodappbackend.response.ApiResponse> deleteReview(@PathVariable String id) {
         try {
             customerReviewService.deleteReview(id);
-            return new ResponseEntity<>("Review deleted successfully", HttpStatus.OK);
+            return new ResponseEntity<>(
+                    new com.plh.foodappbackend.response.ApiResponse(true, "Review deleted successfully", null),
+                    HttpStatus.OK);
         } catch (Exception e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>(
+                    new com.plh.foodappbackend.response.ApiResponse(false, e.getMessage(), null),
+                    HttpStatus.NOT_FOUND);
         }
     }
 }
