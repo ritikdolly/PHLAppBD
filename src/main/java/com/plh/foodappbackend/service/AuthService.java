@@ -1,6 +1,5 @@
 package com.plh.foodappbackend.service;
 
-import com.plh.foodappbackend.model.User;
 import com.plh.foodappbackend.request.LoginRequest;
 import com.plh.foodappbackend.response.AuthResponse;
 

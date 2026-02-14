@@ -55,7 +55,7 @@ public class AdminOrderController {
     public ResponseEntity<Map<String, Object>> getDashboardStats(@RequestParam(required = false) String period,
             @RequestHeader("Authorization") String jwt) {
         // period is placeholder for now as service implementation ignores it currently
-        Map<String, Object> stats = orderService.getDashboardStats();
+        Map<String, Object> stats = orderService.getDashboardStats(period);
         return new ResponseEntity<>(stats, HttpStatus.OK);
     }
 

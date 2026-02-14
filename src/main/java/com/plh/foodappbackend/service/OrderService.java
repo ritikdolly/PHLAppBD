@@ -18,7 +18,7 @@ public interface OrderService {
 
     List<Order> getAllOrders(); // admin
 
-    Map<String, Object> getDashboardStats();
+    Map<String, Object> getDashboardStats(String period);
 
     Order findOrderById(String orderId) throws Exception;
 }

@@ -2,7 +2,6 @@ package com.plh.foodappbackend.serviceImpl;
 
 import com.plh.foodappbackend.model.*;
 import com.plh.foodappbackend.repository.OrderRepository;
-import com.plh.foodappbackend.repository.UserRepository;
 import com.plh.foodappbackend.request.OrderRequest;
 import com.plh.foodappbackend.service.CartService;
 import com.plh.foodappbackend.service.OrderService;
@@ -20,6 +19,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private com.plh.foodappbackend.repository.FoodRepository foodRepository;
 
     @Autowired
     private CartService cartService;
@@ -98,7 +100,8 @@ public class OrderServiceImpl implements OrderService {
                 orderStatus.equals("DELIVERED") ||
                 orderStatus.equals("COMPLETED") ||
                 orderStatus.equals("PENDING") ||
-                orderStatus.equals("CONFIRMED")) {
+                orderStatus.equals("CONFIRMED") ||
+                orderStatus.equals("CANCELLED")) {
 
             try {
                 ORDER_STATUS status = ORDER_STATUS.valueOf(orderStatus);
@@ -131,29 +134,31 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public java.util.Map<String, Object> getDashboardStats() {
-        List<Order> orders = getAllOrders();
+    public java.util.Map<String, Object> getDashboardStats(String period) {
+        List<Order> allOrders = getAllOrders();
         java.util.Map<String, Object> stats = new java.util.HashMap<>();
 
-        long totalOrders = orders.size();
+        // Filter orders based on period
+        List<Order> filteredOrders = filterOrdersByPeriod(allOrders, period);
 
+        long totalOrders = filteredOrders.size();
         BigDecimal revenue = BigDecimal.ZERO;
-        for (Order order : orders) {
-            if (order.getTotalAmount() != null) {
+        for (Order order : filteredOrders) {
+            if (order.getStatus() != ORDER_STATUS.CANCELLED && order.getTotalAmount() != null) {
                 revenue = revenue.add(order.getTotalAmount());
             }
         }
 
-        long pendingOrders = orders.stream().filter(o -> o.getStatus() == ORDER_STATUS.PENDING ||
+        long pendingOrders = filteredOrders.stream().filter(o -> o.getStatus() == ORDER_STATUS.PENDING ||
                 o.getStatus() == ORDER_STATUS.PAYMENT_PENDING ||
                 o.getStatus() == ORDER_STATUS.CONFIRMED ||
                 o.getStatus() == ORDER_STATUS.PREPARING ||
                 o.getStatus() == ORDER_STATUS.OUT_FOR_DELIVERY).count();
 
-        long completedOrders = orders.stream()
+        long completedOrders = filteredOrders.stream()
                 .filter(o -> o.getStatus() == ORDER_STATUS.DELIVERED || o.getStatus() == ORDER_STATUS.COMPLETED)
                 .count();
-        long cancelledOrders = orders.stream().filter(o -> o.getStatus() == ORDER_STATUS.CANCELLED).count();
+        long cancelledOrders = filteredOrders.stream().filter(o -> o.getStatus() == ORDER_STATUS.CANCELLED).count();
 
         stats.put("totalOrders", totalOrders);
         stats.put("revenue", revenue);
@@ -161,12 +166,87 @@ public class OrderServiceImpl implements OrderService {
         stats.put("completedOrders", completedOrders);
         stats.put("cancelledOrders", cancelledOrders);
 
-        // Placeholder for other stats expected by frontend, can be real implementation
-        // later
-        stats.put("foodItems", 0);
-        stats.put("activeOffers", 0);
+        // Food Items count
+        long foodItems = foodRepository.count();
+        stats.put("foodItems", foodItems);
+        stats.put("activeOffers", 0); // No Offer model yet
+
+        // Revenue Trends (Last 7 days or based on period - keeping it simple for now)
+        // Group revenue by date (simplified approach)
+        java.util.Map<String, BigDecimal> revenueTrends = new java.util.LinkedHashMap<>();
+        // Logic to populate trends could be added here, but for now let's provide basic
+        // aggregated data or just placeholder structure if complex chart needed.
+        // For distinct visual, let's group by day for the filter period.
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        for (Order order : filteredOrders) {
+            if (order.getStatus() != ORDER_STATUS.CANCELLED && order.getCreatedAt() != null
+                    && order.getTotalAmount() != null) {
+                String dateKey = sdf.format(order.getCreatedAt());
+                revenueTrends.put(dateKey,
+                        revenueTrends.getOrDefault(dateKey, BigDecimal.ZERO).add(order.getTotalAmount()));
+            }
+        }
+
+        // Transform to List of Objects for frontend {label, amount}
+        List<java.util.Map<String, Object>> revenueData = new ArrayList<>();
+        for (java.util.Map.Entry<String, BigDecimal> entry : revenueTrends.entrySet()) {
+            java.util.Map<String, Object> dataPoint = new java.util.HashMap<>();
+            dataPoint.put("label", entry.getKey());
+            dataPoint.put("amount", entry.getValue());
+            revenueData.add(dataPoint);
+        }
+        stats.put("revenueData", revenueData);
+
+        // Recent Activity (Last 5 orders)
+        List<Order> recentActivity = filteredOrders.stream()
+                .sorted((o1, o2) -> o2.getCreatedAt().compareTo(o1.getCreatedAt()))
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+        stats.put("recentOrders", recentActivity);
 
         return stats;
+    }
+
+    private List<Order> filterOrdersByPeriod(List<Order> orders, String period) {
+        if (period == null || period.equalsIgnoreCase("all")) {
+            return orders;
+        }
+
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        cal.set(java.util.Calendar.MINUTE, 0);
+        cal.set(java.util.Calendar.SECOND, 0);
+        cal.set(java.util.Calendar.MILLISECOND, 0);
+
+        Date startDate;
+
+        switch (period.toLowerCase()) {
+            case "daily":
+                // Today
+                startDate = cal.getTime();
+                break;
+            case "weekly":
+                // Last 7 days
+                cal.add(java.util.Calendar.DAY_OF_YEAR, -7);
+                startDate = cal.getTime();
+                break;
+            case "monthly":
+                // Last 30 days
+                cal.add(java.util.Calendar.DAY_OF_YEAR, -30);
+                startDate = cal.getTime();
+                break;
+            case "yearly":
+                // Last 365 days
+                cal.add(java.util.Calendar.DAY_OF_YEAR, -365);
+                startDate = cal.getTime();
+                break;
+            default:
+                return orders;
+        }
+
+        return orders.stream()
+                .filter(o -> o.getCreatedAt() != null && !o.getCreatedAt().before(startDate))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override

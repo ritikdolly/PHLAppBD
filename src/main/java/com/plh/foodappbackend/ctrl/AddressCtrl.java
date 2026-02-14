@@ -3,6 +3,8 @@ package com.plh.foodappbackend.ctrl;
 import com.plh.foodappbackend.model.Address;
 import com.plh.foodappbackend.model.User;
 import com.plh.foodappbackend.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,13 +19,15 @@ import java.util.List;
 @RequestMapping("/api/address")
 public class AddressCtrl {
 
+    private static final Logger logger = LoggerFactory.getLogger(AddressCtrl.class);
+
     @Autowired
     private UserService userService;
 
     private User resolveUser() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            System.out.println("AddressCtrl.resolveUser: Auth: " + authentication);
+            logger.info("AddressCtrl.resolveUser: Auth: {}", authentication);
             if (authentication != null && authentication.isAuthenticated()
                     && !authentication.getPrincipal().equals("anonymousUser")) {
                 Object principal = authentication.getPrincipal();
@@ -35,15 +39,14 @@ public class AddressCtrl {
                     email = (String) principal;
                 }
 
-                System.out.println("AddressCtrl.resolveUser: Email: " + email);
+                logger.info("AddressCtrl.resolveUser: Email: {}", email);
 
                 if (email != null) {
                     return userService.findUserByEmail(email);
                 }
             }
         } catch (Exception e) {
-            System.out.println("Error resolving user: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Error resolving user: ", e);
         }
         return null;
     }

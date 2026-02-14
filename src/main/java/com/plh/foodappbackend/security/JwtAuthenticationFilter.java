@@ -15,9 +15,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
@@ -33,30 +37,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(token)) {
             try {
                 String username = jwtTokenProvider.getUsernameFromToken(token);
-                System.out.println("JwtAuthFilter: Token found, username: " + username);
+                logger.debug("JwtAuthFilter: Token found, username: {}", username);
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    System.out.println("JwtAuthFilter: UserDetails loaded: " + userDetails.getUsername());
+                    logger.debug("JwtAuthFilter: UserDetails loaded: {}", userDetails.getUsername());
 
                     if (jwtTokenProvider.validateToken(token, userDetails)) {
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                        System.out.println("JwtAuthFilter: Auth set in context");
+                        logger.debug("JwtAuthFilter: Auth set in context");
                     } else {
-                        System.out.println("JwtAuthFilter: Token validation failed");
+                        logger.warn("JwtAuthFilter: Token validation failed");
                     }
                 }
             } catch (Exception e) {
-                System.out.println("JwtAuthFilter: Exception: " + e.getMessage());
-                e.printStackTrace();
+                logger.error("JwtAuthFilter: Exception: ", e);
                 // Token is invalid/expired or signature mismatch.
                 // We simply ignore it and let the request proceed anonymously.
                 // Spring Security will permit or deny based on configuration.
             }
         } else {
-            System.out.println("JwtAuthFilter: No token found");
+            logger.debug("JwtAuthFilter: No token found");
         }
 
         filterChain.doFilter(request, response);
