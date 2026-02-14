@@ -67,6 +67,21 @@ public class PaymentController {
         return new ResponseEntity<>(res, HttpStatus.CREATED);
     }
 
+    @PostMapping("/payment/initiate/{orderId}")
+    public ResponseEntity<PaymentResponse> initiatePaymentForOrder(@PathVariable String orderId,
+            @RequestHeader("Authorization") String jwt)
+            throws Exception {
+        User user = userService.findUserByJwtToken(jwt);
+        Order order = orderService.findOrderById(orderId);
+
+        if (!order.getUserId().equals(user.getId())) {
+            throw new Exception("Access Denied");
+        }
+
+        PaymentResponse res = paymentService.createPaymentLink(order);
+        return new ResponseEntity<>(res, HttpStatus.CREATED);
+    }
+
     @PutMapping("/payment/verify")
     public ResponseEntity<Order> verifyPayment(@RequestBody PaymentVerificationRequest req,
             @RequestHeader("Authorization") String jwt) throws Exception {

@@ -50,4 +50,45 @@ public class Food {
     private String comments;
 
     private boolean availability = true; // default
+
+    // Offer System Fields
+    private String offerType; // "percentage" or "flat"
+    private BigDecimal offerValue; // Amount in ₹ or % value
+    private java.util.Date offerStartDate;
+    private java.util.Date offerEndDate;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isOfferActive")
+    private boolean isOfferActive = false;
+
+    // Computed property for API response
+    @com.fasterxml.jackson.annotation.JsonProperty("discountedPrice")
+    public BigDecimal getDiscountedPrice() {
+        if (!isOfferActive || offerType == null || offerValue == null) {
+            return price;
+        }
+
+        java.util.Date now = new java.util.Date();
+        if (offerStartDate != null && now.before(offerStartDate)) {
+            return price;
+        }
+        if (offerEndDate != null && now.after(offerEndDate)) {
+            return price;
+        }
+
+        BigDecimal discounted = price;
+
+        if ("percentage".equalsIgnoreCase(offerType)) {
+            BigDecimal discount = price.multiply(offerValue).divide(BigDecimal.valueOf(100));
+            discounted = price.subtract(discount);
+        } else if ("flat".equalsIgnoreCase(offerType)) {
+            discounted = price.subtract(offerValue);
+        }
+
+        // Ensure price never goes below 0
+        if (discounted.compareTo(BigDecimal.ZERO) < 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return discounted.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
 }

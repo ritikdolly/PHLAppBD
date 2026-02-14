@@ -3,6 +3,7 @@ package com.plh.foodappbackend.serviceImpl;
 import com.plh.foodappbackend.model.*;
 import com.plh.foodappbackend.repository.OrderRepository;
 import com.plh.foodappbackend.request.OrderRequest;
+import com.plh.foodappbackend.request.BuyNowRequest;
 import com.plh.foodappbackend.service.CartService;
 import com.plh.foodappbackend.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,6 +87,94 @@ public class OrderServiceImpl implements OrderService {
         cartService.clearCart(user);
 
         return savedOrder;
+    }
+
+    @Override
+    public Order createBuyNowOrder(BuyNowRequest req, User user) throws Exception {
+        if (user == null) {
+            throw new Exception("User not found");
+        }
+
+        Food food = foodRepository.findById(req.getFoodId())
+                .orElseThrow(() -> new Exception("Food not found"));
+
+        if (!food.isAvailability()) {
+            throw new Exception("Food is currently unavailable");
+        }
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setFoodId(food.getId());
+        orderItem.setFoodName(food.getName());
+        orderItem.setFoodImage(food.getImageUrl());
+        orderItem.setQuantity(req.getQuantity());
+
+        // Use discounted price logic
+        BigDecimal price = food.getDiscountedPrice();
+        orderItem.setPrice(price);
+        orderItem.setTotalPrice(price.multiply(BigDecimal.valueOf(req.getQuantity())));
+
+        List<OrderItem> orderItems = new ArrayList<>();
+        orderItems.add(orderItem);
+
+        Order order = new Order();
+        order.setUserId(user.getId());
+        order.setUserName(user.getName());
+        order.setItems(orderItems);
+
+        BigDecimal totalItemPrice = orderItem.getTotalPrice();
+        order.setTotalItemPrice(totalItemPrice);
+
+        // Same delivery logic as Cart
+        BigDecimal deliveryFee = BigDecimal.ZERO;
+        if (totalItemPrice.compareTo(BigDecimal.valueOf(300)) < 0) {
+            deliveryFee = BigDecimal.valueOf(40);
+        }
+        order.setDeliveryFee(deliveryFee);
+        order.setTax(BigDecimal.ZERO);
+        order.setTotalAmount(totalItemPrice.add(deliveryFee));
+        order.setTotalItem(req.getQuantity());
+        order.setCreatedAt(new Date());
+        order.setStatus(ORDER_STATUS.PENDING); // Temporary status until address/payment confirmed
+
+        // Initialize empty PaymentDetails
+        PaymentDetails paymentDetails = new PaymentDetails();
+        paymentDetails.setStatus(PAYMENT_STATUS.PENDING);
+        order.setPaymentDetails(paymentDetails);
+
+        return orderRepository.save(order);
+    }
+
+    @Override
+    public Order confirmOrder(String orderId, OrderRequest req, User user) throws Exception {
+        Order order = findOrderById(orderId);
+
+        if (!order.getUserId().equals(user.getId())) {
+            throw new Exception("You do not have access to this order");
+        }
+
+        if (order.getStatus() != ORDER_STATUS.PENDING) {
+            throw new Exception("Order is already confirmed or processed");
+        }
+
+        order.setShippingAddress(req.getShippingAddress());
+
+        PaymentDetails paymentDetails = order.getPaymentDetails();
+        paymentDetails.setPaymentMethod(req.getPaymentMethod());
+
+        if (req.getPaymentMethod() == PAYMENT_METHOD.COD) {
+            paymentDetails.setStatus(PAYMENT_STATUS.PENDING);
+            order.setStatus(ORDER_STATUS.PENDING); // Remains pending until admin actions? Or should be CONFIRMED?
+            // Usually COD orders are placed and waiting for fulfillment. PENDING is fine,
+            // or PLACED.
+            // Let's keep it consistent with createOrder logic: PENDING for COD.
+        } else {
+            paymentDetails.setStatus(PAYMENT_STATUS.PENDING);
+            order.setStatus(ORDER_STATUS.PAYMENT_PENDING);
+        }
+
+        order.setPaymentDetails(paymentDetails);
+
+        return orderRepository.save(order);
     }
 
     @Override

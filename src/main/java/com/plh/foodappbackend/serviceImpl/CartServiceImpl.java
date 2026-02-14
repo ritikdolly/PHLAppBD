@@ -63,7 +63,7 @@ public class CartServiceImpl implements CartService {
         CartItem newItem = new CartItem();
         newItem.setFoodId(food.getId());
         newItem.setQuantity(request.getQuantity());
-        newItem.setPrice(food.getPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
+        newItem.setPrice(food.getDiscountedPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
         newItem.setName(food.getName());
         newItem.setImageUrl(food.getImageUrl());
 
@@ -84,7 +84,7 @@ public class CartServiceImpl implements CartService {
                     // Recalculate price: fetch food to get unit price safely
                     Optional<Food> foodOpt = foodRepository.findById(foodId);
                     if (foodOpt.isPresent()) {
-                        item.setPrice(foodOpt.get().getPrice().multiply(BigDecimal.valueOf(quantity)));
+                        item.setPrice(foodOpt.get().getDiscountedPrice().multiply(BigDecimal.valueOf(quantity)));
                     }
                     break;
                 }

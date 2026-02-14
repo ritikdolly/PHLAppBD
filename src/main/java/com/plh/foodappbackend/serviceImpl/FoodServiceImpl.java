@@ -17,13 +17,28 @@ public class FoodServiceImpl implements FoodService {
 
     @Override
     public Food addFood(Food food) {
+        validateOffer(food);
         return foodRepository.save(food);
     }
 
     @Override
     public Food updateFood(String id, Food food) {
         food.setId(id); // Ensure ID matches path
+        validateOffer(food);
         return foodRepository.save(food);
+    }
+
+    private void validateOffer(Food food) {
+        if (food.isOfferActive()) {
+            if (food.getOfferStartDate() != null && food.getOfferEndDate() != null) {
+                if (!food.getOfferEndDate().after(food.getOfferStartDate())) {
+                    throw new IllegalArgumentException("Offer end date must be after start date");
+                }
+            }
+            if (food.getOfferValue() != null && java.math.BigDecimal.ZERO.compareTo(food.getOfferValue()) > 0) {
+                throw new IllegalArgumentException("Offer value must be positive");
+            }
+        }
     }
 
     @Override
