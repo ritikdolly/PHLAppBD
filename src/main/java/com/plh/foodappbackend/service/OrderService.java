@@ -21,4 +21,11 @@ public interface OrderService {
     Map<String, Object> getDashboardStats(String period);
 
     Order findOrderById(String orderId) throws Exception;
+
+    // Delivery management methods
+    Order assignDeliveryMan(String orderId, String deliveryManId, User admin) throws Exception;
+
+    Order markAsDelivered(String orderId, User deliveryMan) throws Exception;
+
+    List<Order> getDeliveryManOrders(String deliveryManId);
 }

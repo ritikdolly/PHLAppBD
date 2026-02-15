@@ -165,6 +165,7 @@ public class OrderServiceImpl implements OrderService {
                 orderStatus.equals("COMPLETED") ||
                 orderStatus.equals("PENDING") ||
                 orderStatus.equals("CONFIRMED") ||
+                orderStatus.equals("PREPARING") ||
                 orderStatus.equals("CANCELLED")) {
 
             try {
@@ -320,5 +321,97 @@ public class OrderServiceImpl implements OrderService {
             throw new Exception("Order not found");
         }
         return order.get();
+    }
+
+    // ==================== Delivery Management Methods ====================
+
+    @Autowired
+    private com.plh.foodappbackend.service.DeliveryManService deliveryManService;
+
+    @Override
+    public Order assignDeliveryMan(String orderId, String deliveryManId, User admin) throws Exception {
+        // Verify admin role
+        if (admin.getRole() != USER_ROLE.ROLE_ADMIN) {
+            throw new Exception("Only admins can assign delivery men");
+        }
+
+        // Find order
+        Order order = findOrderById(orderId);
+
+        // Validate order can be assigned
+        if (order.getStatus() != ORDER_STATUS.PENDING &&
+                order.getStatus() != ORDER_STATUS.CONFIRMED &&
+                order.getStatus() != ORDER_STATUS.PREPARING) {
+            throw new Exception("Order cannot be assigned in current status: " + order.getStatus());
+        }
+
+        // Check if already assigned
+        if (order.getDeliveryManId() != null) {
+            throw new Exception("Order already assigned to a delivery man");
+        }
+
+        // Get delivery man and validate availability
+        com.plh.foodappbackend.model.DeliveryMan deliveryMan = deliveryManService.getDeliveryManById(deliveryManId);
+
+        if (deliveryMan.getAvailabilityStatus() != AVAILABILITY_STATUS.AVAILABLE) {
+            throw new Exception(
+                    "Delivery man is not available. Current status: " + deliveryMan.getAvailabilityStatus());
+        }
+
+        // Atomic update: Assign delivery man to order
+        order.setDeliveryManId(deliveryMan.getId());
+        order.setDeliveryManName(deliveryMan.getName());
+        order.setDeliveryManMobile(deliveryMan.getMobileNumber());
+        order.setStatus(ORDER_STATUS.OUT_FOR_DELIVERY);
+
+        // Save order first
+        Order updatedOrder = orderRepository.save(order);
+
+        // Update delivery man status to BUSY
+        deliveryManService.updateAvailabilityStatus(deliveryManId, AVAILABILITY_STATUS.BUSY);
+
+        return updatedOrder;
+    }
+
+    @Override
+    public Order markAsDelivered(String orderId, User deliveryMan) throws Exception {
+        // Verify delivery man role
+        if (deliveryMan.getRole() != USER_ROLE.ROLE_DELIVERY) {
+            throw new Exception("Only delivery personnel can mark orders as delivered");
+        }
+
+        // Find order
+        Order order = findOrderById(orderId);
+
+        // Validate this delivery man is assigned to this order
+        if (order.getDeliveryManId() == null) {
+            throw new Exception("No delivery man assigned to this order");
+        }
+
+        if (!order.getDeliveryManId().equals(deliveryMan.getId())) {
+            throw new Exception("This order is not assigned to you");
+        }
+
+        // Validate order status
+        if (order.getStatus() != ORDER_STATUS.OUT_FOR_DELIVERY) {
+            throw new Exception("Order cannot be marked as delivered in current status: " + order.getStatus());
+        }
+
+        // Update order status
+        order.setStatus(ORDER_STATUS.DELIVERED);
+        order.setDeliveredAt(new Date());
+
+        // Save order
+        Order updatedOrder = orderRepository.save(order);
+
+        // Update delivery man status back to AVAILABLE
+        deliveryManService.updateAvailabilityStatus(order.getDeliveryManId(), AVAILABILITY_STATUS.AVAILABLE);
+
+        return updatedOrder;
+    }
+
+    @Override
+    public List<Order> getDeliveryManOrders(String deliveryManId) {
+        return orderRepository.findByDeliveryManId(deliveryManId);
     }
 }

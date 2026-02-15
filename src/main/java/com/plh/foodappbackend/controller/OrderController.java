@@ -56,4 +56,14 @@ public class OrderController {
         Order order = orderService.updateOrder(id, orderStatus);
         return new ResponseEntity<>(order, HttpStatus.OK);
     }
+
+    @PutMapping("/admin/order/{id}/assign")
+    public ResponseEntity<Order> assignDeliveryMan(
+            @PathVariable String id,
+            @RequestBody com.plh.foodappbackend.request.AssignDeliveryManRequest request,
+            @RequestHeader("Authorization") String jwt) throws Exception {
+        User admin = userService.findUserByJwtToken(jwt);
+        Order order = orderService.assignDeliveryMan(id, request.getDeliveryManId(), admin);
+        return new ResponseEntity<>(order, HttpStatus.OK);
+    }
 }

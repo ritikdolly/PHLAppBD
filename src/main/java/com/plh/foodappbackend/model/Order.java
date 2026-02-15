@@ -29,4 +29,10 @@ public class Order {
     private PaymentDetails paymentDetails;
     private int totalItem;
     private Date createdAt;
+
+    // Delivery Man tracking fields
+    private String deliveryManId;
+    private String deliveryManName;
+    private String deliveryManMobile;
+    private Date deliveredAt;
 }
