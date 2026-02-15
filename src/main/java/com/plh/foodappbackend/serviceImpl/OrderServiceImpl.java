@@ -33,43 +33,102 @@ public class OrderServiceImpl implements OrderService {
             throw new Exception("User not found");
         }
 
-        Address shippingAddress = req.getShippingAddress();
-
-        Cart cart = cartService.getCart(user);
-        List<OrderItem> orderItems = new ArrayList<>();
-
-        for (CartItem item : cart.getItems()) {
-            OrderItem orderItem = new OrderItem();
-            orderItem.setFoodId(item.getFoodId());
-            orderItem.setFoodName(item.getName());
-            orderItem.setFoodImage(item.getImageUrl());
-            orderItem.setPrice(item.getPrice());
-            orderItem.setQuantity(item.getQuantity());
-            orderItem.setTotalPrice(item.getPrice());
-
-            // Derive unit price safely
-            if (item.getQuantity() > 0) {
-                orderItem.setPrice(
-                        item.getPrice().divide(BigDecimal.valueOf(item.getQuantity()), java.math.RoundingMode.HALF_UP));
-            } else {
-                orderItem.setPrice(BigDecimal.ZERO);
-            }
-
-            orderItems.add(orderItem);
+        // Validate required fields
+        if (req.getShippingAddress() == null) {
+            throw new Exception("Shipping address is required");
         }
 
+        if (req.getPaymentMethod() == null) {
+            throw new Exception("Payment method is required");
+        }
+
+        Address shippingAddress = req.getShippingAddress();
+        List<OrderItem> orderItems = new ArrayList<>();
+        BigDecimal totalItemPrice;
+        int totalItemCount;
+
+        // Check if this is a buy-now order or cart-based order
+        if (req.getBuyNowItem() != null) {
+            // Buy Now Flow: Create order from single item
+            OrderRequest.BuyNowItem buyNowItem = req.getBuyNowItem();
+
+            Food food = foodRepository.findById(buyNowItem.getFoodId())
+                    .orElseThrow(() -> new Exception("Food not found"));
+
+            if (!food.isAvailability()) {
+                throw new Exception("Food is currently unavailable");
+            }
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setFoodId(food.getId());
+            orderItem.setFoodName(food.getName());
+            orderItem.setFoodImage(food.getImageUrl());
+            orderItem.setQuantity(buyNowItem.getQuantity());
+
+            // Use discounted price logic
+            BigDecimal price = food.getDiscountedPrice();
+            orderItem.setPrice(price);
+            orderItem.setTotalPrice(price.multiply(BigDecimal.valueOf(buyNowItem.getQuantity())));
+
+            orderItems.add(orderItem);
+            totalItemPrice = orderItem.getTotalPrice();
+            totalItemCount = buyNowItem.getQuantity();
+
+        } else {
+            // Cart Checkout Flow: Create order from cart
+            Cart cart = cartService.getCart(user);
+
+            if (cart.getItems().isEmpty()) {
+                throw new Exception("Cart is empty");
+            }
+
+            for (CartItem item : cart.getItems()) {
+                OrderItem orderItem = new OrderItem();
+                orderItem.setFoodId(item.getFoodId());
+                orderItem.setFoodName(item.getName());
+                orderItem.setFoodImage(item.getImageUrl());
+                orderItem.setQuantity(item.getQuantity());
+                orderItem.setTotalPrice(item.getPrice());
+
+                // Derive unit price safely
+                if (item.getQuantity() > 0) {
+                    orderItem.setPrice(
+                            item.getPrice().divide(BigDecimal.valueOf(item.getQuantity()),
+                                    java.math.RoundingMode.HALF_UP));
+                } else {
+                    orderItem.setPrice(BigDecimal.ZERO);
+                }
+
+                orderItems.add(orderItem);
+            }
+
+            totalItemPrice = cart.getTotalItemPrice();
+            totalItemCount = cart.getItems().size();
+        }
+
+        // Calculate delivery fee
+        BigDecimal deliveryFee = BigDecimal.ZERO;
+        if (totalItemPrice.compareTo(BigDecimal.valueOf(300)) < 0) {
+            deliveryFee = BigDecimal.valueOf(40);
+        }
+
+        BigDecimal tax = BigDecimal.ZERO;
+        BigDecimal totalAmount = totalItemPrice.add(deliveryFee).add(tax);
+
+        // Create Order
         Order order = new Order();
         order.setUserId(user.getId());
         order.setUserName(user.getName());
         order.setItems(orderItems);
-        order.setTotalAmount(cart.getTotalAmount());
-        order.setTotalItemPrice(cart.getTotalItemPrice());
-        order.setDeliveryFee(cart.getDeliveryFee());
-        order.setTax(cart.getTax());
+        order.setTotalItemPrice(totalItemPrice);
+        order.setDeliveryFee(deliveryFee);
+        order.setTax(tax);
+        order.setTotalAmount(totalAmount);
         order.setShippingAddress(shippingAddress);
-        order.setTotalItem(cart.getItems().size());
+        order.setTotalItem(totalItemCount);
         order.setCreatedAt(new Date());
 
+        // Set Payment Details and Status
         PaymentDetails paymentDetails = new PaymentDetails();
         paymentDetails.setPaymentMethod(req.getPaymentMethod());
 
@@ -84,97 +143,13 @@ public class OrderServiceImpl implements OrderService {
         order.setPaymentDetails(paymentDetails);
 
         Order savedOrder = orderRepository.save(order);
-        cartService.clearCart(user);
+
+        // Clear cart only if this was a cart-based checkout
+        if (req.getBuyNowItem() == null) {
+            cartService.clearCart(user);
+        }
 
         return savedOrder;
-    }
-
-    @Override
-    public Order createBuyNowOrder(BuyNowRequest req, User user) throws Exception {
-        if (user == null) {
-            throw new Exception("User not found");
-        }
-
-        Food food = foodRepository.findById(req.getFoodId())
-                .orElseThrow(() -> new Exception("Food not found"));
-
-        if (!food.isAvailability()) {
-            throw new Exception("Food is currently unavailable");
-        }
-
-        OrderItem orderItem = new OrderItem();
-        orderItem.setFoodId(food.getId());
-        orderItem.setFoodName(food.getName());
-        orderItem.setFoodImage(food.getImageUrl());
-        orderItem.setQuantity(req.getQuantity());
-
-        // Use discounted price logic
-        BigDecimal price = food.getDiscountedPrice();
-        orderItem.setPrice(price);
-        orderItem.setTotalPrice(price.multiply(BigDecimal.valueOf(req.getQuantity())));
-
-        List<OrderItem> orderItems = new ArrayList<>();
-        orderItems.add(orderItem);
-
-        Order order = new Order();
-        order.setUserId(user.getId());
-        order.setUserName(user.getName());
-        order.setItems(orderItems);
-
-        BigDecimal totalItemPrice = orderItem.getTotalPrice();
-        order.setTotalItemPrice(totalItemPrice);
-
-        // Same delivery logic as Cart
-        BigDecimal deliveryFee = BigDecimal.ZERO;
-        if (totalItemPrice.compareTo(BigDecimal.valueOf(300)) < 0) {
-            deliveryFee = BigDecimal.valueOf(40);
-        }
-        order.setDeliveryFee(deliveryFee);
-        order.setTax(BigDecimal.ZERO);
-        order.setTotalAmount(totalItemPrice.add(deliveryFee));
-        order.setTotalItem(req.getQuantity());
-        order.setCreatedAt(new Date());
-        order.setStatus(ORDER_STATUS.PENDING); // Temporary status until address/payment confirmed
-
-        // Initialize empty PaymentDetails
-        PaymentDetails paymentDetails = new PaymentDetails();
-        paymentDetails.setStatus(PAYMENT_STATUS.PENDING);
-        order.setPaymentDetails(paymentDetails);
-
-        return orderRepository.save(order);
-    }
-
-    @Override
-    public Order confirmOrder(String orderId, OrderRequest req, User user) throws Exception {
-        Order order = findOrderById(orderId);
-
-        if (!order.getUserId().equals(user.getId())) {
-            throw new Exception("You do not have access to this order");
-        }
-
-        if (order.getStatus() != ORDER_STATUS.PENDING) {
-            throw new Exception("Order is already confirmed or processed");
-        }
-
-        order.setShippingAddress(req.getShippingAddress());
-
-        PaymentDetails paymentDetails = order.getPaymentDetails();
-        paymentDetails.setPaymentMethod(req.getPaymentMethod());
-
-        if (req.getPaymentMethod() == PAYMENT_METHOD.COD) {
-            paymentDetails.setStatus(PAYMENT_STATUS.PENDING);
-            order.setStatus(ORDER_STATUS.PENDING); // Remains pending until admin actions? Or should be CONFIRMED?
-            // Usually COD orders are placed and waiting for fulfillment. PENDING is fine,
-            // or PLACED.
-            // Let's keep it consistent with createOrder logic: PENDING for COD.
-        } else {
-            paymentDetails.setStatus(PAYMENT_STATUS.PENDING);
-            order.setStatus(ORDER_STATUS.PAYMENT_PENDING);
-        }
-
-        order.setPaymentDetails(paymentDetails);
-
-        return orderRepository.save(order);
     }
 
     @Override

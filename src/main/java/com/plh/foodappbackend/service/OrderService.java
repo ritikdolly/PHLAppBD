@@ -3,7 +3,6 @@ package com.plh.foodappbackend.service;
 import com.plh.foodappbackend.model.Order;
 import com.plh.foodappbackend.model.User;
 import com.plh.foodappbackend.request.OrderRequest;
-import com.plh.foodappbackend.request.BuyNowRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -11,11 +10,7 @@ import java.util.Map;
 public interface OrderService {
     Order createOrder(OrderRequest req, User user) throws Exception;
 
-    Order createBuyNowOrder(BuyNowRequest req, User user) throws Exception;
-
     Order updateOrder(String orderId, String orderStatus) throws Exception;
-
-    Order confirmOrder(String orderId, OrderRequest req, User user) throws Exception;
 
     void cancelOrder(String orderId) throws Exception;
 
