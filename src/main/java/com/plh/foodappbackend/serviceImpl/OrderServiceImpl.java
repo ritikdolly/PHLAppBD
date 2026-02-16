@@ -27,6 +27,9 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private CartService cartService;
 
+    @Autowired
+    private com.plh.foodappbackend.service.NotificationService notificationService;
+
     @Override
     public Order createOrder(OrderRequest req, User user) throws Exception {
         if (user == null) {
@@ -143,6 +146,14 @@ public class OrderServiceImpl implements OrderService {
         order.setPaymentDetails(paymentDetails);
 
         Order savedOrder = orderRepository.save(order);
+
+        // Trigger Notification
+        try {
+            notificationService.sendOrderNotification(savedOrder);
+        } catch (Exception e) {
+            // Log error but don't fail the order
+            System.err.println("Failed to send notification: " + e.getMessage());
+        }
 
         // Clear cart only if this was a cart-based checkout
         if (req.getBuyNowItem() == null) {
