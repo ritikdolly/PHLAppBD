@@ -76,11 +76,11 @@ public class AuthServiceImpl implements AuthService {
         // 1. Verify OTP first
         VerificationCode verificationCode = verificationCodeRepository.findByEmail(request.getEmail());
         if (verificationCode == null || !verificationCode.getOtp().equals(request.getOtp())) {
-            throw new BadCredentialsException("Invalid OTP");
+            throw new RuntimeException("Invalid OTP");
         }
 
         if (verificationCode.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BadCredentialsException("OTP Expired");
+            throw new RuntimeException("OTP Expired");
         }
 
         // 2. Clear OTP
@@ -124,8 +124,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+        } catch (BadCredentialsException e) {
+            throw new BadCredentialsException("Incorrect email or password");
+        }
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User user = userRepository.findByEmail(loginRequest.getEmail())
@@ -154,11 +159,11 @@ public class AuthServiceImpl implements AuthService {
         VerificationCode verificationCode = verificationCodeRepository.findByEmail(email);
 
         if (verificationCode == null || !verificationCode.getOtp().equals(otp)) {
-            throw new BadCredentialsException("Invalid OTP");
+            throw new RuntimeException("Invalid OTP");
         }
 
         if (verificationCode.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BadCredentialsException("OTP Expired");
+            throw new RuntimeException("OTP Expired");
         }
 
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
@@ -207,11 +212,11 @@ public class AuthServiceImpl implements AuthService {
         VerificationCode verificationCode = verificationCodeRepository.findByEmail(email);
 
         if (verificationCode == null || !verificationCode.getOtp().equals(otp)) {
-            throw new BadCredentialsException("Invalid OTP");
+            throw new RuntimeException("Invalid OTP");
         }
 
         if (verificationCode.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BadCredentialsException("OTP Expired");
+            throw new RuntimeException("OTP Expired");
         }
 
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
