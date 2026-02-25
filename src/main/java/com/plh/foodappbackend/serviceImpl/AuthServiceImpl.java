@@ -321,4 +321,56 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Google authentication failed: " + e.getMessage());
         }
     }
+
+    @Override
+    public void sendForgotPasswordOtp(String email) {
+        // Verify user exists
+        userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("No account found with this email address"));
+
+        // Generate OTP
+        String otp = String.format("%06d", new Random().nextInt(999999));
+
+        VerificationCode verificationCode = verificationCodeRepository.findByEmail(email);
+        if (verificationCode == null) {
+            verificationCode = new VerificationCode();
+            verificationCode.setEmail(email);
+        }
+        verificationCode.setOtp(otp);
+        verificationCode.setExpiryDate(LocalDateTime.now().plusMinutes(5));
+        verificationCodeRepository.save(verificationCode);
+
+        emailService.sendPasswordResetOtp(email, otp);
+    }
+
+    @Override
+    public void resetPassword(String email, String otp, String newPassword) {
+        // Verify OTP
+        VerificationCode verificationCode = verificationCodeRepository.findByEmail(email);
+
+        if (verificationCode == null || !verificationCode.getOtp().equals(otp)) {
+            throw new BadCredentialsException("Invalid OTP");
+        }
+
+        if (verificationCode.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new BadCredentialsException("OTP has expired. Please request a new one.");
+        }
+
+        // Validate new password
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new RuntimeException("Password must be at least 6 characters long");
+        }
+
+        // Update password
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Delete the used OTP
+        verificationCodeRepository.delete(verificationCode);
+
+        logger.info("Password reset successfully for email: {}", email);
+    }
 }

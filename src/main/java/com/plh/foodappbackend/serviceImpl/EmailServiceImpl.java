@@ -13,38 +13,38 @@ public class EmailServiceImpl implements EmailService {
     @Autowired
     private JavaMailSender javaMailSender;
 
+    @Value("${website_name:Food App}")
+    private String websiteName;
+
     @Override
     public void sendWelcomeEmail(String to) {
         sendEmail(
                 to,
-                "Welcome to Food App",
+                "Welcome to %s".formatted(websiteName),
                 buildWelcomeEmailBody());
     }
-
-    @Value("${website_name:Food App}")
-    private String websiteName;
 
     private String buildWelcomeEmailBody() {
         return """
                 Dear Customer,
 
-                Welcome to %s !
+                Welcome to %s!
 
-                We’re delighted to have you on board. With Food App, you can explore a wide range of delicious meals, place orders effortlessly, and enjoy fast and reliable delivery.
+                We're delighted to have you on board. With %s, you can explore a wide range of delicious meals, place orders effortlessly, and enjoy fast and reliable delivery.
 
                 If you need any assistance, our support team is always here to help.
 
                 Warm regards,
                 %s Team
                 """
-                .formatted(websiteName, websiteName);
+                .formatted(websiteName, websiteName, websiteName);
     }
 
     @Override
     public void sendLoginAlert(String to) {
         sendEmail(
                 to,
-                "Login Alert – Successful Sign-In",
+                "Login Alert – %s".formatted(websiteName),
                 buildLoginAlertEmailBody());
     }
 
@@ -52,13 +52,13 @@ public class EmailServiceImpl implements EmailService {
         return """
                 Dear Customer,
 
-                This is to inform you that your account was successfully logged in.
+                This is to inform you that your %s account was successfully logged in.
 
-                If this wasn’t you, please secure your account immediately by changing your password.
+                If this wasn't you, please secure your account immediately by changing your password.
 
                 Best regards,
-                Food App Security Team
-                """;
+                %s Security Team
+                """.formatted(websiteName, websiteName);
     }
 
     // @Override
@@ -68,7 +68,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendVerificationOtp(String to, String otp) {
-        String subject = "Your Email Verification OTP";
+        String subject = "Email Verification OTP – %s".formatted(websiteName);
         String body = buildOtpEmailBody(otp);
         sendEmail(to, subject, body);
     }
@@ -100,7 +100,29 @@ public class EmailServiceImpl implements EmailService {
                 If you did not request this, please ignore this email.
 
                 Best regards,
-                Support Team
-                """.formatted(otp);
+                %s Team
+                """.formatted(otp, websiteName);
+    }
+
+    @Override
+    public void sendPasswordResetOtp(String to, String otp) {
+        String subject = "Password Reset OTP – " + websiteName;
+        String body = """
+                Dear Customer,
+
+                We received a request to reset the password for your %s account.
+
+                Your Password Reset OTP is:
+
+                %s
+
+                This OTP is valid for 5 minutes. Please do not share it with anyone.
+
+                If you did not request a password reset, please ignore this email. Your password will remain unchanged.
+
+                Best regards,
+                %s Security Team
+                """.formatted(websiteName, otp, websiteName);
+        sendEmail(to, subject, body);
     }
 }

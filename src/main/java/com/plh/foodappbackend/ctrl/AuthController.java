@@ -1,7 +1,9 @@
 package com.plh.foodappbackend.ctrl;
 
+import com.plh.foodappbackend.request.ForgotPasswordRequest;
 import com.plh.foodappbackend.request.GoogleLoginRequest;
 import com.plh.foodappbackend.request.LoginRequest;
+import com.plh.foodappbackend.request.ResetPasswordRequest;
 
 import com.plh.foodappbackend.response.AuthResponse;
 import com.plh.foodappbackend.service.AuthService;
@@ -65,6 +67,18 @@ public class AuthController {
     public ResponseEntity<AuthResponse> googleLogin(@RequestBody GoogleLoginRequest request) {
         AuthResponse response = authService.loginWithGoogle(request.getGoogleToken());
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        authService.sendForgotPasswordOtp(request.getEmail());
+        return ResponseEntity.ok("Password reset OTP sent to email");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
+        return ResponseEntity.ok("Password reset successful");
     }
 
 }

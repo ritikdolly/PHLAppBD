@@ -6,4 +6,6 @@ public interface EmailService {
     void sendLoginAlert(String to);
 
     void sendVerificationOtp(String to, String otp);
+
+    void sendPasswordResetOtp(String to, String otp);
 }
