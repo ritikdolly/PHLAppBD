@@ -1,14 +1,18 @@
 package com.plh.foodappbackend.serviceImpl;
 
 import com.plh.foodappbackend.model.User;
+import com.plh.foodappbackend.model.USER_ROLE;
 import com.plh.foodappbackend.repository.UserRepository;
+import com.plh.foodappbackend.request.CreateUserRequest;
 import com.plh.foodappbackend.security.JwtTokenProvider;
 import com.plh.foodappbackend.service.UserService;
 import lombok.AllArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -16,6 +20,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public User getUserById(String id) {
@@ -58,11 +63,10 @@ public class UserServiceImpl implements UserService {
             existingUser.setName(user.getName());
             existingUser.setPhone(user.getPhone());
             existingUser.setBio(user.getBio());
-            existingUser.setAddress(user.getAddress()); // Update addresses as well
-            // existingUser.setEmail(user.getEmail()); // Optional: decide if email update
-            // is allowed here
-            // Persist other fields like address if needed, but for now ProfilePage only has
-            // these.
+            existingUser.setAddress(user.getAddress());
+            // SECURITY: Do NOT update role, email, or password here.
+            // Role changes are restricted to Admin via /api/admin/users.
+            // This prevents privilege escalation via profile update API tampering.
             return userRepository.save(existingUser);
         }
         return null;
@@ -91,5 +95,38 @@ public class UserServiceImpl implements UserService {
             throw new Exception("User not found with email " + email);
         }
         return user;
+    }
+
+    @Override
+    public User createUserByAdmin(CreateUserRequest request) {
+        // Validate role
+        USER_ROLE role;
+        try {
+            role = USER_ROLE.valueOf(request.getRole());
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid role: " + request.getRole()
+                    + ". Valid roles: ROLE_CUSTOMER, ROLE_ADMIN, ROLE_RESTAURANT_OWNER, ROLE_DELIVERY");
+        }
+
+        // Check for duplicate email
+        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
+        if (existingUser.isPresent()) {
+            throw new RuntimeException("Email is already used with another account");
+        }
+
+        User user = new User();
+        user.setName(request.getFullName());
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setPhone(request.getPhoneNumber());
+        user.setRole(role);
+        user.setEmailVerified(true); // Admin-created users skip email verification
+
+        return userRepository.save(user);
+    }
+
+    @Override
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
     }
 }

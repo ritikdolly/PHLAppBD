@@ -1,6 +1,7 @@
 package com.plh.foodappbackend.service;
 
 import com.plh.foodappbackend.model.User;
+import com.plh.foodappbackend.request.CreateUserRequest;
 import java.util.List;
 
 public interface UserService {
@@ -17,4 +18,8 @@ public interface UserService {
     User findUserByEmail(String email);
 
     User findUserByJwtToken(String jwt) throws Exception;
+
+    User createUserByAdmin(CreateUserRequest request);
+
+    List<User> getAllUsers();
 }

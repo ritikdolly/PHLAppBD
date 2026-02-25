@@ -1,5 +1,6 @@
 package com.plh.foodappbackend.ctrl;
 
+import com.plh.foodappbackend.request.GoogleLoginRequest;
 import com.plh.foodappbackend.request.LoginRequest;
 
 import com.plh.foodappbackend.response.AuthResponse;
@@ -57,6 +58,12 @@ public class AuthController {
     public ResponseEntity<AuthResponse> otpLogin(@RequestBody com.plh.foodappbackend.model.VerificationCode code) {
         // Using VerificationCode model as DTO (email, otp)
         AuthResponse response = authService.loginWithOtp(code.getEmail(), code.getOtp());
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> googleLogin(@RequestBody GoogleLoginRequest request) {
+        AuthResponse response = authService.loginWithGoogle(request.getGoogleToken());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

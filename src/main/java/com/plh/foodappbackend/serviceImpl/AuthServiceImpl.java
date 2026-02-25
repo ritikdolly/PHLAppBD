@@ -12,6 +12,7 @@ import com.plh.foodappbackend.security.JwtTokenProvider;
 import com.plh.foodappbackend.service.AuthService;
 import com.plh.foodappbackend.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,17 +20,23 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -48,6 +55,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private EmailService emailService;
+
+    @Value("${google.client.id}")
+    private String googleClientId;
 
     @Override
     public void sendRegisterOtp(String email) {
@@ -76,11 +86,11 @@ public class AuthServiceImpl implements AuthService {
         // 1. Verify OTP first
         VerificationCode verificationCode = verificationCodeRepository.findByEmail(request.getEmail());
         if (verificationCode == null || !verificationCode.getOtp().equals(request.getOtp())) {
-            throw new RuntimeException("Invalid OTP");
+            throw new BadCredentialsException("Invalid OTP");
         }
 
         if (verificationCode.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("OTP Expired");
+            throw new BadCredentialsException("OTP Expired");
         }
 
         // 2. Clear OTP
@@ -101,11 +111,10 @@ public class AuthServiceImpl implements AuthService {
         user.setName(request.getFullName());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        try {
-            user.setRole(USER_ROLE.valueOf(request.getRole()));
-        } catch (Exception e) {
-            user.setRole(USER_ROLE.ROLE_CUSTOMER);
-        }
+        // SECURITY: Public registration always assigns ROLE_CUSTOMER.
+        // Privileged roles (ADMIN, RESTAURANT_OWNER, DELIVERY) can only be
+        // assigned by an Admin via /api/admin/users endpoint.
+        user.setRole(USER_ROLE.ROLE_CUSTOMER);
 
         if (request.getPhoneNumber() != null) {
             // Optional: Handle phone number if needed, but we rely on email
@@ -159,11 +168,11 @@ public class AuthServiceImpl implements AuthService {
         VerificationCode verificationCode = verificationCodeRepository.findByEmail(email);
 
         if (verificationCode == null || !verificationCode.getOtp().equals(otp)) {
-            throw new RuntimeException("Invalid OTP");
+            throw new BadCredentialsException("Invalid OTP");
         }
 
         if (verificationCode.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("OTP Expired");
+            throw new BadCredentialsException("OTP Expired");
         }
 
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
@@ -212,11 +221,11 @@ public class AuthServiceImpl implements AuthService {
         VerificationCode verificationCode = verificationCodeRepository.findByEmail(email);
 
         if (verificationCode == null || !verificationCode.getOtp().equals(otp)) {
-            throw new RuntimeException("Invalid OTP");
+            throw new BadCredentialsException("Invalid OTP");
         }
 
         if (verificationCode.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("OTP Expired");
+            throw new BadCredentialsException("OTP Expired");
         }
 
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
@@ -243,5 +252,73 @@ public class AuthServiceImpl implements AuthService {
         authResponse.setRole(user.getRole());
         authResponse.setUserId(user.getId());
         return authResponse;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public AuthResponse loginWithGoogle(String googleToken) {
+        try {
+            logger.info("Verifying Google token with client ID: {}...",
+                    googleClientId != null ? googleClientId.substring(0, Math.min(20, googleClientId.length())) + "..."
+                            : "NULL");
+
+            // Use Google's tokeninfo endpoint to verify the ID token
+            RestTemplate restTemplate = new RestTemplate();
+            String tokenInfoUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + googleToken;
+
+            Map<String, Object> tokenInfo;
+            try {
+                tokenInfo = restTemplate.getForObject(tokenInfoUrl, Map.class);
+            } catch (Exception e) {
+                logger.error("Google token verification failed: {}", e.getMessage());
+                throw new BadCredentialsException("Invalid Google token: verification failed");
+            }
+
+            if (tokenInfo == null) {
+                throw new BadCredentialsException("Invalid Google token: empty response from Google");
+            }
+
+            // Verify the audience matches our client ID
+            String aud = (String) tokenInfo.get("aud");
+            if (!googleClientId.equals(aud)) {
+                logger.error("Google token audience mismatch. Expected: {}, Got: {}", googleClientId, aud);
+                throw new BadCredentialsException("Invalid Google token: audience mismatch");
+            }
+
+            String email = (String) tokenInfo.get("email");
+            String name = (String) tokenInfo.get("name");
+
+            if (email == null || email.isEmpty()) {
+                throw new BadCredentialsException("Invalid Google token: no email in token");
+            }
+
+            logger.info("Google token verified successfully for email: {}", email);
+
+            // Find existing user or create a new one
+            User user = userRepository.findByEmail(email).orElseGet(() -> {
+                User newUser = new User();
+                newUser.setEmail(email);
+                newUser.setName(name != null ? name : email);
+                newUser.setEmailVerified(true);
+                newUser.setRole(USER_ROLE.ROLE_CUSTOMER);
+                // No password for Google users
+                return userRepository.save(newUser);
+            });
+
+            String token = jwtTokenProvider.generateToken(email);
+
+            AuthResponse authResponse = new AuthResponse();
+            authResponse.setJwt(token);
+            authResponse.setMessage("Google Login Success");
+            authResponse.setRole(user.getRole());
+            authResponse.setUserId(user.getId());
+            return authResponse;
+
+        } catch (BadCredentialsException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Google authentication failed", e);
+            throw new RuntimeException("Google authentication failed: " + e.getMessage());
+        }
     }
 }

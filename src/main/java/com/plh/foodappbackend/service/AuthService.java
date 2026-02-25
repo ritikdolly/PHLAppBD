@@ -15,4 +15,6 @@ public interface AuthService {
     void sendLoginOtp(String email);
 
     AuthResponse loginWithOtp(String email, String otp);
+
+    AuthResponse loginWithGoogle(String googleToken);
 }
